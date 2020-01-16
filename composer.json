@@ -1,0 +1,23 @@
+{
+    "name": "sharpie89/laravel-multiform-request",
+    "type": "library",
+    "description": "A multi form request for laravel",
+    "keywords": ["form","request","laravel","validation"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Sarp Derinsu",
+            "email": "sarpderinsu@hotmail.nl",
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": ">=7.0",
+        "illuminate/routing": "^5.5|^6"
+    },
+    "autoload": {
+        "psr-4": {
+            "Sharpie89\\MultiFormRequest\\": "src/"
+        }
+    }
+}
