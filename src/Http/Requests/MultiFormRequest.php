@@ -18,6 +18,18 @@ class MultiFormRequest extends FormRequest
      * @var array
      */
     private $multiFormRequests = [];
+    /**
+     * @var array
+     */
+    private $multiFormRequestRules = [];
+    /**
+     * @var array
+     */
+    private $multiFormRequestMessages = [];
+    /**
+     * @var array
+     */
+    private $multiFormRequestAttributes = [];
 
     /**
      * @throws ReflectionException
@@ -35,6 +47,7 @@ class MultiFormRequest extends FormRequest
         }
 
         if ($this->isFirst()) {
+            $this->setMultiFormRequestDetails();
             $this->validateAll();
         }
 
@@ -56,9 +69,9 @@ class MultiFormRequest extends FormRequest
         /** @var Validator $validator */
         $validator = $factory->make(
             $this->validationData(),
-            $this->getMultiFormRequestRules(),
-            $this->messages(),
-            $this->attributes()
+            $this->multiFormRequestRules,
+            $this->multiFormRequestMessages,
+            $this->multiFormRequestAttributes
         );
 
         if ($validator->fails()) {
@@ -66,18 +79,25 @@ class MultiFormRequest extends FormRequest
         }
     }
 
-    private function getMultiFormRequestRules(): array
+    private function setMultiFormRequestDetails(): array
     {
-        $rules = [];
-
         foreach ($this->multiFormRequests as $multiFormRequestClass) {
             /* @var self $multiFormRequest */
             $multiFormRequest = new $multiFormRequestClass;
 
-            $rules = array_merge($rules, $multiFormRequest->rules());
+            $this->multiFormRequestRules = array_merge(
+                $this->multiFormRequestRules,
+                $multiFormRequest->rules()
+            );
+            $this->multiFormRequestMessages = array_merge(
+                $this->multiFormRequestMessages,
+                $multiFormRequest->messages()
+            );
+            $this->multiFormRequestAttributes = array_merge(
+                $this->multiFormRequestAttributes,
+                $multiFormRequest->attributes()
+            );
         }
-
-        return $rules;
     }
 
     /**
