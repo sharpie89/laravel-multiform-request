@@ -1,2 +1,3 @@
-# laravel-multiform-request
-A multi form request for laravel
+# Laravel MultiFormRequest
+
+composer require sharpie89/laravel-multiform-request
