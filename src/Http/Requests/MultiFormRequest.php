@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 use ReflectionException;
 use ReflectionMethod;
 
-class MultiFormRequest extends FormRequest
+abstract class MultiFormRequest extends FormRequest
 {
     /**
      * @var array
@@ -46,9 +46,8 @@ class MultiFormRequest extends FormRequest
             $this->failedAuthorization();
         }
 
-        if ($this->isFirst()) {
-            $this->setMultiFormRequestDetails();
-            $this->validateAll();
+        if ($this->isFirstMultiFormRequest()) {
+            $this->validateMultiFormRequests();
         }
 
         $instance = $this->getValidatorInstance();
@@ -62,41 +61,20 @@ class MultiFormRequest extends FormRequest
      * @throws BindingResolutionException
      * @throws ValidationException
      */
-    private function validateAll(): void
+    private function validateMultiFormRequests(): void
     {
         $factory = $this->container->make(ValidationFactory::class);
 
         /** @var Validator $validator */
         $validator = $factory->make(
             $this->validationData(),
-            $this->multiFormRequestRules,
-            $this->multiFormRequestMessages,
-            $this->multiFormRequestAttributes
+            $this->getMultiFormRequestRules(),
+            $this->getMultiFormRequestMessages(),
+            $this->getMultiFormRequestAttributes()
         );
 
         if ($validator->fails()) {
             $this->failedValidation($validator);
-        }
-    }
-
-    private function setMultiFormRequestDetails(): array
-    {
-        foreach ($this->multiFormRequests as $multiFormRequestClass) {
-            /* @var self $multiFormRequest */
-            $multiFormRequest = new $multiFormRequestClass;
-
-            $this->multiFormRequestRules = array_merge(
-                $this->multiFormRequestRules,
-                $multiFormRequest->rules()
-            );
-            $this->multiFormRequestMessages = array_merge(
-                $this->multiFormRequestMessages,
-                $multiFormRequest->messages()
-            );
-            $this->multiFormRequestAttributes = array_merge(
-                $this->multiFormRequestAttributes,
-                $multiFormRequest->attributes()
-            );
         }
     }
 
@@ -109,7 +87,13 @@ class MultiFormRequest extends FormRequest
             $class = $parameter->getClass()->getName();
 
             if (is_subclass_of($class, self::class)) {
-                $this->multiFormRequests[] = $class;
+                /* @var \Modules\Project\Http\Requests\MultiFormRequest $multiFormRequest */
+                $multiFormRequest = new $class;
+
+                $this->addMultiFormRequest($class);
+                $this->addMultiFormRequestRules($multiFormRequest->rules());
+                $this->addMultiFormRequestAttributes($multiFormRequest->attributes());
+                $this->addMultiFormRequestMessages($multiFormRequest->messages());
             }
         }
     }
@@ -129,8 +113,48 @@ class MultiFormRequest extends FormRequest
         return $reflectionMethod->getParameters();
     }
 
-    private function isFirst(): bool
+    private function isFirstMultiFormRequest(): bool
     {
-        return head($this->multiFormRequests) === static::class;
+        return head($this->getMultiFormRequests()) === static::class;
+    }
+
+    private function addMultiFormRequest(string $class): void
+    {
+        $this->multiFormRequests[] = $class;
+    }
+
+    private function addMultiFormRequestRules(array $rules): void
+    {
+        $this->multiFormRequestRules = array_merge($this->multiFormRequestRules, $rules);
+    }
+
+    private function addMultiFormRequestAttributes(array $attributes): void
+    {
+        $this->multiFormRequestAttributes = array_merge($this->multiFormRequestAttributes, $attributes);
+    }
+
+    private function addMultiFormRequestMessages(array $messages): void
+    {
+        $this->multiFormRequestMessages = array_merge($this->multiFormRequestMessages, $messages);
+    }
+
+    public function getMultiFormRequests(): array
+    {
+        return $this->multiFormRequests;
+    }
+
+    public function getMultiFormRequestRules(): array
+    {
+        return $this->multiFormRequestRules;
+    }
+
+    public function getMultiFormRequestAttributes(): array
+    {
+        return $this->multiFormRequestAttributes;
+    }
+
+    public function getMultiFormRequestMessages(): array
+    {
+        return $this->multiFormRequestMessages;
     }
 }
