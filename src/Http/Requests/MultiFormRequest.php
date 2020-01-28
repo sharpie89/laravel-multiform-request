@@ -87,7 +87,7 @@ abstract class MultiFormRequest extends FormRequest
             $class = $parameter->getClass()->getName();
 
             if (is_subclass_of($class, self::class)) {
-                /* @var \Modules\Project\Http\Requests\MultiFormRequest $multiFormRequest */
+                /* @var self $multiFormRequest */
                 $multiFormRequest = new $class;
 
                 $this->addMultiFormRequest($class);
