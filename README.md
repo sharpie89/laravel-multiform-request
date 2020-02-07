@@ -35,7 +35,7 @@ class StoreBookRequest extends MultiFormRequest
 ```php
 use Sharpie89\MultiFormRequest\Http\Requests\MultiFormRequest;
 
-class StoreBookDetailsRequest extends MultiFormRequest
+class StoreBookDetailRequest extends MultiFormRequest
 {
     public function rules(): array
     {
@@ -58,17 +58,17 @@ class BookController extends Controller
 {
     public function store(
         StoreBookRequest $storeBookRequest,
-        StoreBookDetailsRequest $storeBookDetailsRequest
+        StoreBookDetailRequest $storeBookDetailRequest
     ): RedirectResponse {
         $book = new Book($storeBookRequest->validated());
         $book->save();
         
-        $bookDetails = new BookDetails($storeBookDetailsRequest->validated());
-        $book->details()->save($bookDetails);
+        $bookDetail = new BookDetail($storeBookDetailRequest->validated());
+        $book->detail()->save($bookDetail);
         
         return redirect()
             ->route('books.show', $book->getKey())
-            ->with('message', 'Book and details have been updated!');
+            ->with('message', 'Book and detail have been updated!');
     }
 }
 ```
