@@ -18,18 +18,6 @@ abstract class MultiFormRequest extends FormRequest
      * @var array
      */
     private $multiFormRequests = [];
-    /**
-     * @var array
-     */
-    private $multiFormRequestRules = [];
-    /**
-     * @var array
-     */
-    private $multiFormRequestMessages = [];
-    /**
-     * @var array
-     */
-    private $multiFormRequestAttributes = [];
 
     /**
      * @throws ReflectionException
@@ -61,17 +49,21 @@ abstract class MultiFormRequest extends FormRequest
      * @throws BindingResolutionException
      * @throws ValidationException
      */
-    private function validateMultiFormRequests(): void
+    private function validateMultiFormRequests(array $rules = [], array $messages = [], array $attributes = []): void
     {
         $factory = $this->container->make(ValidationFactory::class);
 
+        foreach($this->getMultiFormRequests() as $class) {
+            /* @var self $multiFormRequest */
+            $multiFormRequest = $class::createFromBase($this);
+
+            $rules = array_merge($rules, $multiFormRequest->rules());
+            $messages = array_merge($messages, $multiFormRequest->attributes());
+            $attributes = array_merge($attributes, $multiFormRequest->messages());
+        }
+
         /** @var Validator $validator */
-        $validator = $factory->make(
-            $this->validationData(),
-            $this->getMultiFormRequestRules(),
-            $this->getMultiFormRequestMessages(),
-            $this->getMultiFormRequestAttributes()
-        );
+        $validator = $factory->make($this->validationData(), $rules, $messages, $attributes);
 
         if ($validator->fails()) {
             $this->failedValidation($validator);
@@ -83,78 +75,28 @@ abstract class MultiFormRequest extends FormRequest
      */
     private function setMultiFormRequests(): void
     {
-        foreach ($this->getCurrentControllerParameters() as $parameter) {
-            $class = $parameter->getClass()->getName();
-
-            if (is_subclass_of($class, self::class)) {
-                /* @var self $multiFormRequest */
-                $multiFormRequest = new $class;
-
-                $this->addMultiFormRequest($class);
-                $this->addMultiFormRequestRules($multiFormRequest->rules());
-                $this->addMultiFormRequestAttributes($multiFormRequest->attributes());
-                $this->addMultiFormRequestMessages($multiFormRequest->messages());
-            }
-        }
-    }
-
-    /**
-     * @return array
-     * @throws ReflectionException
-     */
-    private function getCurrentControllerParameters(): array
-    {
         $controllerAction = Route::getCurrentRoute()
             ->getActionName();
 
         $controllerMethod = explode('@', $controllerAction);
         $reflectionMethod = new ReflectionMethod(...$controllerMethod);
 
-        return $reflectionMethod->getParameters();
+        foreach ($reflectionMethod->getParameters() as $parameter) {
+            $class = $parameter->getClass()->getName();
+
+            if (is_subclass_of($class, self::class)) {
+                $this->multiFormRequests[] = $class;
+            }
+        }
     }
 
     private function isFirstMultiFormRequest(): bool
     {
-        return head($this->getMultiFormRequests()) === static::class;
-    }
-
-    private function addMultiFormRequest(string $class): void
-    {
-        $this->multiFormRequests[] = $class;
-    }
-
-    private function addMultiFormRequestRules(array $rules): void
-    {
-        $this->multiFormRequestRules = array_merge($this->multiFormRequestRules, $rules);
-    }
-
-    private function addMultiFormRequestAttributes(array $attributes): void
-    {
-        $this->multiFormRequestAttributes = array_merge($this->multiFormRequestAttributes, $attributes);
-    }
-
-    private function addMultiFormRequestMessages(array $messages): void
-    {
-        $this->multiFormRequestMessages = array_merge($this->multiFormRequestMessages, $messages);
+        return array_key_first($this->getMultiFormRequests()) === static::class;
     }
 
     public function getMultiFormRequests(): array
     {
         return $this->multiFormRequests;
-    }
-
-    public function getMultiFormRequestRules(): array
-    {
-        return $this->multiFormRequestRules;
-    }
-
-    public function getMultiFormRequestAttributes(): array
-    {
-        return $this->multiFormRequestAttributes;
-    }
-
-    public function getMultiFormRequestMessages(): array
-    {
-        return $this->multiFormRequestMessages;
     }
 }
