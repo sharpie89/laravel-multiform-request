@@ -12,6 +12,8 @@ Just extend your current FormRequest with MultiFormRequest and chain the request
 
 ## Examples
 
+Use Sharpie89\MultiFormRequest\Http\Requests\MultiFormRequest instead of Illuminate\Foundation\Http\FormRequest:
+
 ```php
 use Sharpie89\MultiFormRequest\Http\Requests\MultiFormRequest;
 
@@ -49,6 +51,7 @@ class StoreBookDetailsRequest extends MultiFormRequest
 }
 ```
 
+Chain the requests inside the controller method:
 
 ```php
 class BookController extends Controller
@@ -60,7 +63,8 @@ class BookController extends Controller
         $book = new Book($storeBookRequest->validated());
         $book->save();
         
-        $book->details()->create($storeBookDetailsRequest->validated());
+        $bookDetails = new BookDetails($storeBookDetailsRequest->validated());
+        $book->details()->save($bookDetails);
         
         return redirect()
             ->route('books.show', $book->getKey())
