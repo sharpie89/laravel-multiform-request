@@ -75,7 +75,6 @@ class BookController extends Controller
 
 ## Notes
 
-- `$request->all()` returns all the validation data, including any changes from all `prepareForValidation()` methods in all the requests.
-- `$request->validated()` only returns the validation data that is exclusive to that request.
+- `$request->all()` and `$request->validated()` only return the validation data that is exclusive to that request (by intersecting the rules array).
 
 
