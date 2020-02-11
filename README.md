@@ -73,5 +73,9 @@ class BookController extends Controller
 }
 ```
 
+## Notes
+
+- `$request->all()` returns all validation data, including any changes from `prepareForValidation()` method.
+- `$request->validated()` returns validation data that is exclusive to that MultiFormRequest.
 
 
