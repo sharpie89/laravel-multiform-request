@@ -28,12 +28,11 @@ abstract class MultiFormRequest extends FormRequest
     public function validateResolved(): void
     {
         $this->setMultiFormRequests();
+        $this->mergeMultiFormRequestValidationData();
 
         if (!$this->passesAuthorization()) {
             $this->failedAuthorization();
         }
-
-        $this->mergeMultiFormRequestValidationData();
 
         if ($this->isFirstMultiFormRequest()) {
             $this->validateMultiFormRequests();
