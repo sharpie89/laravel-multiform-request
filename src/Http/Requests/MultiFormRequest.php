@@ -50,7 +50,7 @@ abstract class MultiFormRequest extends FormRequest
         $this->eachMultiFormRequest(function(self $multiFormRequest) {
             $multiFormRequest->prepareForValidation();
 
-            $this->merge($multiFormRequest->all());
+            $this->merge($multiFormRequest->validationData());
         });
     }
 
@@ -73,7 +73,7 @@ abstract class MultiFormRequest extends FormRequest
         });
 
         /** @var Validator $validator */
-        $validator = $factory->make($this->all(), $rules, $messages, $attributes);
+        $validator = $factory->make($this->validationData(), $rules, $messages, $attributes);
 
         if ($validator->fails()) {
             $this->failedValidation($validator);
