@@ -28,11 +28,12 @@ abstract class MultiFormRequest extends FormRequest
     public function validateResolved(): void
     {
         $this->setMultiFormRequests();
-        $this->prepareForValidation();
 
         if (!$this->passesAuthorization()) {
             $this->failedAuthorization();
         }
+
+        $this->mergeMultiFormRequestValidationData();
 
         if ($this->isFirstMultiFormRequest()) {
             $this->validateMultiFormRequests();
@@ -45,28 +46,45 @@ abstract class MultiFormRequest extends FormRequest
         }
     }
 
+    private function mergeMultiFormRequestValidationData(): void
+    {
+        $this->eachMultiFormRequest(function(self $multiFormRequest) {
+            $multiFormRequest->prepareForValidation();
+
+            $this->merge($multiFormRequest->all());
+        });
+    }
+
     /**
      * @throws BindingResolutionException
      * @throws ValidationException
      */
-    private function validateMultiFormRequests(array $rules = [], array $messages = [], array $attributes = []): void
-    {
+    private function validateMultiFormRequests(
+        array $validationData = [],
+        array $rules = [],
+        array $messages = [],
+        array $attributes = []
+    ): void {
         $factory = $this->container->make(ValidationFactory::class);
 
-        foreach($this->getMultiFormRequests() as $class) {
-            /* @var self $multiFormRequest */
-            $multiFormRequest = $class::createFromBase($this);
-
+        $this->eachMultiFormRequest(static function(self $multiFormRequest) use (&$rules, &$messages, &$attributes) {
             $rules = array_merge($rules, $multiFormRequest->rules());
             $messages = array_merge($messages, $multiFormRequest->attributes());
             $attributes = array_merge($attributes, $multiFormRequest->messages());
-        }
+        });
 
         /** @var Validator $validator */
-        $validator = $factory->make($this->validationData(), $rules, $messages, $attributes);
+        $validator = $factory->make($this->all(), $rules, $messages, $attributes);
 
         if ($validator->fails()) {
             $this->failedValidation($validator);
+        }
+    }
+
+    private function eachMultiFormRequest(callable $callable): void
+    {
+        foreach($this->getMultiFormRequests() as $class) {
+            $callable($class !== static::class ? $class::createFromBase($this) : $this);
         }
     }
 
@@ -92,10 +110,10 @@ abstract class MultiFormRequest extends FormRequest
 
     private function isFirstMultiFormRequest(): bool
     {
-        return array_key_first($this->getMultiFormRequests()) === static::class;
+        return head($this->getMultiFormRequests()) === static::class;
     }
 
-    public function getMultiFormRequests(): array
+    protected function getMultiFormRequests(): array
     {
         return $this->multiFormRequests;
     }
