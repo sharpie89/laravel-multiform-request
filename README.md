@@ -1,18 +1,18 @@
 # Laravel multi form request
 
-If you don't like the idea of cluttering your controller to extract parameters from a single form request when having 2 or more entities or models, this may suit you. The $request->validated() method only returns the parameters that belong to that MultiFormRequest class and the thrown ValidationException returns a MessageBag that contains all fields.
+If you don't like the idea of cluttering your controller to extract parameters from a single form request when having 2 or more entities or models, this may suit you. The `$request->validated()` method only returns the parameters that belong to that `MultiFormRequest` class and the thrown `ValidationException` returns a `MessageBag` that contains all fields.
 
 ## Installation
 
-composer require sharpie89/laravel-multiform-request
+`composer require sharpie89/laravel-multiform-request`
 
 ## Usage
 
-Just extend your current FormRequest with MultiFormRequest and chain the requests together in your controller method.
+Just extend your current `FormRequest` with `MultiFormRequest` and chain the requests together in your controller method.
 
 ## Examples
 
-Use Sharpie89\MultiFormRequest\Http\Requests\MultiFormRequest instead of Illuminate\Foundation\Http\FormRequest:
+Use `Sharpie89\MultiFormRequest\Http\Requests\MultiFormRequest` instead of `Illuminate\Foundation\Http\FormRequest`:
 
 ```php
 use Sharpie89\MultiFormRequest\Http\Requests\MultiFormRequest;
