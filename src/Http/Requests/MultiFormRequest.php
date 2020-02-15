@@ -7,6 +7,7 @@ use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Routing\Redirector;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use ReflectionException;
@@ -18,6 +19,22 @@ abstract class MultiFormRequest extends FormRequest
      * @var array
      */
     private $multiFormRequests = [];
+    /**
+     * @var array
+     */
+    private $multiFormRequestValidatorData = [];
+    /**
+     * @var array
+     */
+    private $multiFormRequestRules = [];
+    /**
+     * @var array
+     */
+    private $multiFormRequestMessages = [];
+    /**
+     * @var array
+     */
+    private $multiFormRequestAttributes = [];
 
     /**
      * @throws ReflectionException
@@ -42,7 +59,7 @@ abstract class MultiFormRequest extends FormRequest
 
         $instance = $this->getValidatorInstance();
 
-        if (!$instance->fails()) {
+        if ($instance->passes()) {
             $this->passedValidation();
         }
     }
@@ -51,36 +68,78 @@ abstract class MultiFormRequest extends FormRequest
      * @throws BindingResolutionException
      * @throws ValidationException
      */
-    private function validateMultiFormRequests(
-        array $validationData = [],
-        array $rules = [],
-        array $messages = [],
-        array $attributes = []
-    ): void {
-        $factory = $this->container->make(ValidationFactory::class);
-
-        foreach($this->getMultiFormRequests() as $class) {
-            /** @var self $multiFormRequest */
-            $multiFormRequest = $class::createFromBase($this);
+    private function validateMultiFormRequests(): void
+    {
+        foreach ($this->getMultiFormRequests() as $class) {
+            $multiFormRequest = $this->initializeMultiFormRequest($class);
 
             if ($class !== static::class) {
                 $multiFormRequest->prepareForValidation();
             }
 
-            $multiFormRequest->replaceMultiFormRequestParameters();
-
-            $validationData = array_merge($validationData, $multiFormRequest->all());
-            $rules = array_merge($rules, $multiFormRequest->rules());
-            $messages = array_merge($messages, $multiFormRequest->attributes());
-            $attributes = array_merge($attributes, $multiFormRequest->messages());
+            $this->mergeValidatorData($multiFormRequest);
         }
 
+        $this->validateWithValidatorData();
+    }
+
+    private function validateWithValidatorData(): void
+    {
+        $factory = $this->container->make(ValidationFactory::class);
+
         /** @var Validator $validator */
-        $validator = $factory->make($validationData, $rules, $messages, $attributes);
+        $validator = $factory->make(
+            $this->multiFormRequestValidatorData,
+            $this->multiFormRequestRules,
+            $this->multiFormRequestMessages,
+            $this->multiFormRequestAttributes
+        );
 
         if ($validator->fails()) {
             $this->failedValidation($validator);
         }
+    }
+
+    private function initializeMultiFormRequest(string $class): self
+    {
+        /** @var self $multiFormRequest */
+        $multiFormRequest = new $class;
+        $multiFormRequest->setContainer(app());
+        $multiFormRequest->setRedirector(app(Redirector::class));
+        $multiFormRequest->initialize(
+            $this->query->all(),
+            array_intersect_key(
+                $this->request->all(),
+                $multiFormRequest->rules()
+            ),
+            $this->attributes->all(),
+            $this->cookies->all(),
+            $this->files->all(),
+            $this->server->all(),
+            $this->getContent()
+        );
+
+        return $multiFormRequest;
+    }
+
+    private function mergeValidatorData(self $multiFormRequest): void
+    {
+        $this->multiFormRequestValidatorData = array_merge(
+            $this->multiFormRequestValidatorData,
+            $multiFormRequest->all()
+        );
+        $this->multiFormRequestRules = array_merge(
+            $this->multiFormRequestRules,
+            $multiFormRequest->rules()
+        );
+        $this->multiFormRequestMessages = array_merge(
+            $this->multiFormRequestMessages,
+            $multiFormRequest->messages()
+        );
+        $this->multiFormRequestAttributes = array_merge(
+            $this->multiFormRequestAttributes,
+            $multiFormRequest->attributes()
+        );
     }
 
     private function replaceMultiFormRequestParameters(): void
