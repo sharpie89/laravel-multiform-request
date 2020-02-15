@@ -13,28 +13,14 @@ use Illuminate\Validation\ValidationException;
 use ReflectionException;
 use ReflectionMethod;
 
-abstract class MultiFormRequest extends FormRequest
+abstract class MultiFormRequest extends ExtendableFormRequest
 {
+    use MergesValidators;
+
     /**
      * @var array
      */
     private $multiFormRequests = [];
-    /**
-     * @var array
-     */
-    private $multiFormRequestValidatorData = [];
-    /**
-     * @var array
-     */
-    private $multiFormRequestRules = [];
-    /**
-     * @var array
-     */
-    private $multiFormRequestMessages = [];
-    /**
-     * @var array
-     */
-    private $multiFormRequestAttributes = [];
 
     /**
      * @throws ReflectionException
@@ -44,6 +30,8 @@ abstract class MultiFormRequest extends FormRequest
      */
     public function validateResolved(): void
     {
+        $this->setInitialData();
+        $this->replaceDataByRules();
         $this->setMultiFormRequests();
         $this->prepareForValidation();
 
@@ -54,8 +42,6 @@ abstract class MultiFormRequest extends FormRequest
         if ($this->isFirstMultiFormRequest()) {
             $this->validateMultiFormRequests();
         }
-
-        $this->replaceMultiFormRequestParameters();
 
         $instance = $this->getValidatorInstance();
 
@@ -71,80 +57,20 @@ abstract class MultiFormRequest extends FormRequest
     private function validateMultiFormRequests(): void
     {
         foreach ($this->getMultiFormRequests() as $class) {
-            $multiFormRequest = $this->initializeMultiFormRequest($class);
+            $multiFormRequest = $this->extend($class);
 
             if ($class !== static::class) {
                 $multiFormRequest->prepareForValidation();
             }
 
-            $this->mergeValidatorData($multiFormRequest);
+            $validators[] = $multiFormRequest->getValidatorInstance();
         }
 
-        $this->validateWithValidatorData();
-    }
-
-    private function validateWithValidatorData(): void
-    {
-        $factory = $this->container->make(ValidationFactory::class);
-
-        /** @var Validator $validator */
-        $validator = $factory->make(
-            $this->multiFormRequestValidatorData,
-            $this->multiFormRequestRules,
-            $this->multiFormRequestMessages,
-            $this->multiFormRequestAttributes
-        );
+        $validator = $this->mergeValidators($validators);
 
         if ($validator->fails()) {
             $this->failedValidation($validator);
         }
-    }
-
-    private function initializeMultiFormRequest(string $class): self
-    {
-        /** @var self $multiFormRequest */
-        $multiFormRequest = new $class;
-        $multiFormRequest->setContainer(app());
-        $multiFormRequest->setRedirector(app(Redirector::class));
-        $multiFormRequest->initialize(
-            $this->query->all(),
-            array_intersect_key(
-                $this->request->all(),
-                $multiFormRequest->rules()
-            ),
-            $this->attributes->all(),
-            $this->cookies->all(),
-            $this->files->all(),
-            $this->server->all(),
-            $this->getContent()
-        );
-
-        return $multiFormRequest;
-    }
-
-    private function mergeValidatorData(self $multiFormRequest): void
-    {
-        $this->multiFormRequestValidatorData = array_merge(
-            $this->multiFormRequestValidatorData,
-            $multiFormRequest->all()
-        );
-        $this->multiFormRequestRules = array_merge(
-            $this->multiFormRequestRules,
-            $multiFormRequest->rules()
-        );
-        $this->multiFormRequestMessages = array_merge(
-            $this->multiFormRequestMessages,
-            $multiFormRequest->messages()
-        );
-        $this->multiFormRequestAttributes = array_merge(
-            $this->multiFormRequestAttributes,
-            $multiFormRequest->attributes()
-        );
-    }
-
-    private function replaceMultiFormRequestParameters(): void
-    {
-        $this->replace(array_intersect_key($this->all(), $this->rules()));
     }
 
     /**
