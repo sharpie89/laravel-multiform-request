@@ -2,104 +2,47 @@
 
 namespace Sharpie89\MultiFormRequest\Http\Requests;
 
-use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Contracts\Container\BindingResolutionException;
-use Illuminate\Contracts\Validation\Factory as ValidationFactory;
-use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Routing\Redirector;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Validation\ValidationException;
-use ReflectionException;
-use ReflectionMethod;
 
-abstract class MultiFormRequest extends ExtendableFormRequest
+abstract class ExtendableFormRequest extends FormRequest
 {
-    use MergesValidators;
-
     /**
      * @var array
      */
-    private $multiFormRequests = [];
+    protected $initialData = [];
 
-    /**
-     * @throws ReflectionException
-     * @throws ValidationException
-     * @throws AuthorizationException
-     * @throws BindingResolutionException
-     */
-    public function validateResolved(): void
+    protected function extend(string $class): self
     {
-        $this->setInitialData();
-        $this->replaceDataByRules();
-        $this->setMultiFormRequests();
-        $this->prepareForValidation();
+        /** @var self $formRequest */
+        $formRequest = new $class;
+        $formRequest->setContainer(app());
+        $formRequest->setRedirector(app(Redirector::class));
+        $formRequest->initialize(
+            $this->query->all(),
+            $this->getInitialData(),
+            $this->attributes->all(),
+            $this->cookies->all(),
+            $this->files->all(),
+            $this->server->all(),
+            $this->getContent()
+        );
 
-        if (!$this->passesAuthorization()) {
-            $this->failedAuthorization();
-        }
-
-        if ($this->isFirstMultiFormRequest()) {
-            $this->validateMultiFormRequests();
-        }
-
-        $instance = $this->getValidatorInstance();
-
-        if ($instance->passes()) {
-            $this->passedValidation();
-        }
+        return $formRequest;
     }
 
-    /**
-     * @throws BindingResolutionException
-     * @throws ValidationException
-     */
-    private function validateMultiFormRequests(): void
+    protected function setInitialData(): void
     {
-        foreach ($this->getMultiFormRequests() as $class) {
-            $multiFormRequest = $this->extend($class);
-
-            if ($class !== static::class) {
-                $multiFormRequest->prepareForValidation();
-            }
-
-            $validators[] = $multiFormRequest->getValidatorInstance();
-        }
-
-        $validator = $this->mergeValidators($validators);
-
-        if ($validator->fails()) {
-            $this->failedValidation($validator);
-        }
+        $this->initialData = $this->request->all();
     }
 
-    /**
-     * @throws ReflectionException
-     */
-    private function setMultiFormRequests(): void
+    public function getInitialData(): array
     {
-        $controllerAction = Route::getCurrentRoute()
-            ->getActionName();
-
-        $controllerMethod = explode('@', $controllerAction);
-        $reflectionMethod = new ReflectionMethod(...$controllerMethod);
-
-        foreach ($reflectionMethod->getParameters() as $parameter) {
-            $class = $parameter->getClass()->getName();
-
-            if (is_subclass_of($class, self::class)) {
-                $this->multiFormRequests[] = $class;
-            }
-        }
+        return $this->initialData;
     }
 
-    private function isFirstMultiFormRequest(): bool
+    public function replaceDataByRules(): void
     {
-        return head($this->getMultiFormRequests()) === static::class;
-    }
-
-    protected function getMultiFormRequests(): array
-    {
-        return $this->multiFormRequests;
+        $this->replace(array_intersect_key($this->all(), $this->rules()));
     }
 }
